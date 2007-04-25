@@ -1,0 +1,19 @@
+---
+name: String-MatchInterpolate
+version: 0.01
+author:
+  - 'Paul Evans E<lt>leonerd@leonerd.org.ukE<gt>'
+abstract: |-
+  perform named regexp capture and variable
+  interpolation from the same template.
+license: perl
+requires:
+  Text::Balanced: 0
+build_requires:
+  Test::Exception: 0
+  Test::More: 0
+provides:
+  String::MatchInterpolate:
+    file: lib/String/MatchInterpolate.pm
+    version: 0.01
+generated_by: Module::Build version 0.26
