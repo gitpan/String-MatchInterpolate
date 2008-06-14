@@ -1,11 +1,11 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2007 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2007,2008 -- leonerd@leonerd.org.uk
 
 package String::MatchInterpolate;
 
-our $VERSION = "0.01";
+our $VERSION = "0.02";
 
 use strict;
 
@@ -61,13 +61,31 @@ from containing arbitrary perl code, which would be executed every time the
 C<match()> or C<interpolate()> methods are called. (See "SECURITY" section).
 This fact may be changed in a later version.
 
+=head2 Suffices
+
+By default, the beginning and end of the string match are both anchored. If
+the C<allow_suffix> option is passed to the constructor, then the end of the
+string is not anchored, and instead, any suffix found by the C<match()> method
+will be returned in a hash key called C<_suffix>. This may be useful, for
+example, when matching directory names, URLs, or other cases of strings with
+unconstrained suffices. The C<interpolate()> method will not recognise this
+hash key; instead just use normal string concatenation on the result.
+
+ my $userhomematch = String::MatchInterpolate->new(
+    '/home/${USER/\w+/}/',
+    allow_suffix => 1
+ );
+
+ my $vars = $userhomematch->match( "/home/fred/public_html" );
+ print "Need to fetch file $vars->{_suffix} from $vars->{USER}\n";
+
 =cut
 
 =head1 CONSTRUCTOR
 
 =cut
 
-=head2 $smi = String::MatchInterpolate->new( $template )
+=head2 $smi = String::MatchInterpolate->new( $template, %opts )
 
 Constructs a new C<String::MatchInterpolate> object that represents the given
 template and returns it.
@@ -77,6 +95,20 @@ template and returns it.
 =item $template
 
 A string containing the template in the format given above
+
+=item %opts
+
+A hash containing extra options. The following options are recognised:
+
+=over 4
+
+=item allow_suffix
+
+A boolean flag. If true, then the end of the string will not be anchored, and
+instead, an extra suffix will be allowed to follow the matched portion. It
+will be returned as C<_suffix> by the C<match()> method.
+
+=back
 
 =back
 
@@ -147,9 +179,9 @@ sub new
       }
    }
 
-   if( $opts{allow_trail} ) {
+   if( $opts{allow_suffix} ) {
       $matchpattern .= "(.*?)";
-      $matchbind .= "   \$var->{_trail} = \$$capturenumber;\n";
+      $matchbind .= "   \$var->{_suffix} = \$$capturenumber;\n";
       $capturenumber++;
    }
 

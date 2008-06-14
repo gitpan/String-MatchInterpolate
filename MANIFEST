@@ -6,4 +6,4 @@ MANIFEST			This list of files
 META.yml
 t/01use.t
 t/02simple.t
-t/03with_trail.t
+t/03with_suffix.t
