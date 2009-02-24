@@ -25,7 +25,7 @@ cmpthese( $count,
          $str eq $target or die;
       },
 
-      'String::MatchInterpolate' => sub {
+      'S::MI' => sub {
          my $str = $smi->interpolate( $var );
          $str eq $target or die;
       },
@@ -49,7 +49,7 @@ cmpthese( $count,
          $vars{NAME} eq $var->{NAME} or die;
       },
 
-      'String::MatchInterpolate' => sub {
+      'S::MI' => sub {
          my $vars = $smi->match( $target );
          $vars->{NAME} eq $var->{NAME} or die;
       },

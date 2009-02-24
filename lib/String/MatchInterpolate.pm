@@ -1,11 +1,11 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2007,2008 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2007-2009 -- leonerd@leonerd.org.uk
 
 package String::MatchInterpolate;
 
-our $VERSION = "0.02";
+our $VERSION = '0.03';
 
 use strict;
 
@@ -128,7 +128,7 @@ sub new
 
    my $matchpattern = "";
    my $capturenumber = 1;
-   my $matchbind = "";
+   my @matchbinds;
 
    my @interpparts;
 
@@ -157,7 +157,7 @@ sub new
          s{^/}{}, s{/$}{} for $pattern;
 
          $matchpattern .= "($pattern)";
-         $matchbind .= "   \$var->{$var} = \$$capturenumber;\n";
+         push @matchbinds, "$var => \$$capturenumber";
          $capturenumber++;
 
          push @interpparts, "\$var->{$var}";
@@ -181,23 +181,36 @@ sub new
 
    if( $opts{allow_suffix} ) {
       $matchpattern .= "(.*?)";
-      $matchbind .= "   \$var->{_suffix} = \$$capturenumber;\n";
+      push @matchbinds, "_suffix => \$$capturenumber";
       $capturenumber++;
    }
 
    my $matchcode = "
    \$_[0] =~ m{^$matchpattern\$} or return undef;
-   my \$var = {};
-$matchbind
-   \$var;
+   return {
+" . join( ",\n", map { "      $_" } @matchbinds ) . "
+   }
 ";
 
    $self->{matchsub} = eval "sub { $matchcode }";
    croak $@ if $@;
 
+   my $joinline;
+   # By some benchmark testing, join() seems to be faster than chained concat
+   # after about 10 items. This is likely due to the fact that the result
+   # string only needs allocating once, rather than being incrementally grown.
+   # The call/return overhead of join() itself seems to mask this effect below
+   # that limit.
+   if( @interpparts < 10 ) {
+      $joinline = join( " . ", @interpparts );
+   }
+   else {
+      $joinline = "join( '', " . join( ", ", @interpparts ) . " )";
+   }
+
    my $interpcode = "
    my ( \$var ) = \@_;
-   " . join( " . ", @interpparts ) . ";
+   $joinline;
 ";
 
    $self->{interpsub} = eval "sub { $interpcode }";
@@ -272,15 +285,32 @@ sub vars
 
 __END__
 
-=head1 NOTES
+=head1 BENCHMARKS
 
 The template is compiled into a pair of strings containing perl code, which
 implement the matching and interpolation operations using normal perl regexps
 and string contatenation. These strings are then C<eval()>ed into CODE
 references which the object stores. This makes it faster than a simple regexp
 that operates over the template string each time a match or interpolation
-needs to be performed. (See the F<benchmark.pl> file in the module's
-distribution).
+needs to be performed. The following output compares the speed of 
+C<String::MatchInterpolate> against both direct hard-coded perl, and simple
+regexp operations.
+
+ Comparing 'interpolate':
+ 
+            Rate   s///  S::MI native
+ s///    81938/s     --   -44%   -90%
+ S::MI  145232/s    77%     --   -82%
+ native 806800/s   885%   456%     --
+ 
+ Comparing 'match':
+ 
+            Rate    m//  S::MI native
+ m//     35354/s     --   -46%   -73%
+ S::MI   65749/s    86%     --   -50%
+ native 131885/s   273%   101%     --
+
+(This was produced by the F<benchmark.pl> file in the module's distribution.)
 
 =head1 SECURITY CONSIDERATIONS
 
@@ -289,10 +319,12 @@ generated, it is possible to inject arbitrary perl code via the template given
 to the constructor. As such, this object should not be used when the source of
 that template is considered untrusted.
 
-Neither the C<match()> not C<interpolate()> methods suffer this problem; any
+Neither the C<match()> nor C<interpolate()> methods suffer this problem; any
 input into these is safe from exploit in this way.
 
 =head1 SEE ALSO
+
+The following may be used to provide just C<interpolate()>-style operations:
 
 =over 4
 
@@ -302,7 +334,22 @@ L<String::Interpolate> - Wrapper for builtin the Perl interpolation engine
 
 =item *
 
+L<Text::Sprintf::Named> - sprintf-like function with named conversions
+
+=back
+
+The following may be used to provide just C<match()>-style operations:
+
+=over 4
+
+=item *
+
 L<Regexp::NamedCaptures> - Saves capture results to your own variables
+
+=item *
+
+perlre(1) - named capture buffers in perl 5.10 (the C<< (?<NAME>pattern) >>
+format)
 
 =back
 
