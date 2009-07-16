@@ -5,17 +5,18 @@
 
 package String::MatchInterpolate;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use strict;
+use warnings;
 
 use Carp;
 use Text::Balanced qw( extract_delimited extract_bracketed );
 
 =head1 NAME
 
-C<String::MatchInterpolate> - perform named regexp capture and variable
-interpolation from the same template.
+C<String::MatchInterpolate> - named regexp capture and interpolation from the
+same template.
 
 =head1 SYNOPSIS
 
@@ -355,4 +356,4 @@ format)
 
 =head1 AUTHOR
 
-Paul Evans E<lt>leonerd@leonerd.org.ukE<gt>
+Paul Evans <leonerd@leonerd.org.uk>

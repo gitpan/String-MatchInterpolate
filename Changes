@@ -1,5 +1,9 @@
 Revision history for String-MatchInterpolate
 
+0.04    CHANGES:
+         * Added 'use warnings'
+         * Various small updates to keep CPANTS happy
+
 0.03    CHANGES:
          * Slight performance increases, especially for templates with a
            large number of variables
