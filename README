@@ -34,7 +34,8 @@ DESCRIPTION
     contains a name and a pattern. The pattern is a normal perl regexp
     fragment that will be used by the "match()" method. This regexp should
     not contain any capture brackets "( )" as these will confuse the parsing
-    logic.
+    logic. If the variable is not named, it will be assigned a name based on
+    its position, starting from 1 (i.e. similar to regexp capture buffers).
 
     Outside of the embedded variables, the string is interpreted literally;
     i.e. not as a regexp pattern. A backslash "\" may be used to escape the
@@ -85,22 +86,22 @@ CONSTRUCTOR
                 by the "match()" method.
 
 METHODS
+  @values = $smi->match( $str )
   $vars = $smi->match( $str )
-    Attempts to match the given string against the template. If successful,
-    returns a HASH reference containing the values of the captures. If the
-    string fails to match, "undef" is returned.
+    Attempts to match the given string against the template. In list context
+    it returns a list of the captured variables, or an empty list if the
+    match fails. In scalar context, it returns a HASH reference containing
+    all the captured variables, or undef if the match fails.
 
-    $str    The string to match
-
-  $str = $smi->interpolate( $vars )
+  $str = $smi->interpolate( @values )
+  $str = $smi->interpolate( \%vars )
     Interpolates the given variable values into the template and returns the
-    generated string.
-
-    $vars   Reference to a HASH containing the variable values to
-            interpolate
+    generated string. The values may either be given as a list of strings,
+    or in a single HASH reference containing named string values.
 
   @vars = $smi->vars()
-    Returns the list of variable names defined / used by the template.
+    Returns the list of variable names defined / used by the template, in
+    the order in which they appear.
 
 BENCHMARKS
     The template is compiled into a pair of strings containing perl code,
@@ -113,15 +114,15 @@ BENCHMARKS
     perl, and simple regexp operations.
 
      Comparing 'interpolate':
-     
-            Rate   s///  S::MI native
+ 
+                Rate   s///  S::MI native
      s///    81938/s     --   -44%   -90%
      S::MI  145232/s    77%     --   -82%
      native 806800/s   885%   456%     --
-     
- Comparing 'match':
-     
-            Rate    m//  S::MI native
+ 
+     Comparing 'match':
+ 
+                Rate    m//  S::MI native
      m//     35354/s     --   -46%   -73%
      S::MI   65749/s    86%     --   -50%
      native 131885/s   273%   101%     --

@@ -1,11 +1,11 @@
 #  You may distribute under the terms of either the GNU General Public License
 #  or the Artistic License (the same terms as Perl itself)
 #
-#  (C) Paul Evans, 2007-2009 -- leonerd@leonerd.org.uk
+#  (C) Paul Evans, 2007-2010 -- leonerd@leonerd.org.uk
 
 package String::MatchInterpolate;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use strict;
 use warnings;
@@ -49,7 +49,9 @@ it. It looks similar to a perl or shell string with interpolation:
 The embedded variable is delmited by perl-style C<${ }> braces, and contains
 a name and a pattern. The pattern is a normal perl regexp fragment that will
 be used by the C<match()> method. This regexp should not contain any capture
-brackets C<( )> as these will confuse the parsing logic.
+brackets C<( )> as these will confuse the parsing logic. If the variable is
+not named, it will be assigned a name based on its position, starting from 1
+(i.e. similar to regexp capture buffers).
 
 Outside of the embedded variables, the string is interpreted literally; i.e.
 not as a regexp pattern. A backslash C<\> may be used to escape the following
@@ -128,7 +130,7 @@ sub new
    my %vars;
 
    my $matchpattern = "";
-   my $capturenumber = 1;
+   my $varnumber = 0;
    my @matchbinds;
 
    my @interpparts;
@@ -144,9 +146,10 @@ sub new
 
          ( my $embedded, $template ) = extract_bracketed( $template, '{}' );
 
-         $embedded =~ m#^{(\w+)(.*)}$# or croak "Unrecognised format for embedded variable $embedded";
+         $embedded =~ m#^{(\w*)(.*)}$# or croak "Unrecognised format for embedded variable $embedded";
 
          my ( $var, $pattern ) = ( $1, $2 );
+         length $var or $var = ( $varnumber + 1 );
 
          croak "Multiple occurances of $var" if exists $vars{$var};
          $vars{$var} = 1;
@@ -158,10 +161,10 @@ sub new
          s{^/}{}, s{/$}{} for $pattern;
 
          $matchpattern .= "($pattern)";
-         push @matchbinds, "$var => \$$capturenumber";
-         $capturenumber++;
+         push @matchbinds, "$var => \$ ". ( $varnumber + 1 );
+         push @interpparts, "\$_[$varnumber]";
 
-         push @interpparts, "\$var->{$var}";
+         $varnumber++;
       }
       else {
          # Grab up to the next $ that isn't escaped \$
@@ -182,8 +185,8 @@ sub new
 
    if( $opts{allow_suffix} ) {
       $matchpattern .= "(.*?)";
-      push @matchbinds, "_suffix => \$$capturenumber";
-      $capturenumber++;
+      push @matchbinds, "_suffix => \$" . ( $varnumber + 1 );
+      $varnumber++;
    }
 
    my $matchcode = "
@@ -196,23 +199,18 @@ sub new
    $self->{matchsub} = eval "sub { $matchcode }";
    croak $@ if $@;
 
-   my $joinline;
+   my $interpcode;
    # By some benchmark testing, join() seems to be faster than chained concat
    # after about 10 items. This is likely due to the fact that the result
    # string only needs allocating once, rather than being incrementally grown.
    # The call/return overhead of join() itself seems to mask this effect below
    # that limit.
    if( @interpparts < 10 ) {
-      $joinline = join( " . ", @interpparts );
+      $interpcode = join( " . ", @interpparts );
    }
    else {
-      $joinline = "join( '', " . join( ", ", @interpparts ) . " )";
+      $interpcode = "join( '', " . join( ", ", @interpparts ) . " )";
    }
-
-   my $interpcode = "
-   my ( \$var ) = \@_;
-   $joinline;
-";
 
    $self->{interpsub} = eval "sub { $interpcode }";
    croak $@ if $@;
@@ -224,19 +222,14 @@ sub new
 
 =cut
 
+=head2 @values = $smi->match( $str )
+
 =head2 $vars = $smi->match( $str )
 
-Attempts to match the given string against the template. If successful,
-returns a HASH reference containing the values of the captures. If the string
-fails to match, C<undef> is returned.
-
-=over 8
-
-=item $str
-
-The string to match
-
-=back
+Attempts to match the given string against the template. In list context it
+returns a list of the captured variables, or an empty list if the match fails.
+In scalar context, it returns a HASH reference containing all the captured
+variables, or undef if the match fails.
 
 =cut
 
@@ -244,34 +237,41 @@ sub match
 {
    my $self = shift;
    my ( $str ) = @_;
-   return $self->{matchsub}->( $str );
+
+   my $vars = $self->{matchsub}->( $str ) or return;
+
+   return $vars if !wantarray;
+
+   my @values = @{$vars}{ $self->vars };
+   push @values, $vars->{_suffix} if exists $vars->{_suffix};
+   return @values;
 }
 
-=head2 $str = $smi->interpolate( $vars )
+=head2 $str = $smi->interpolate( @values )
+
+=head2 $str = $smi->interpolate( \%vars )
 
 Interpolates the given variable values into the template and returns the
-generated string.
-
-=over 8
-
-=item $vars
-
-Reference to a HASH containing the variable values to interpolate
-
-=back
+generated string. The values may either be given as a list of strings, or in a
+single HASH reference containing named string values.
 
 =cut
 
 sub interpolate
 {
    my $self = shift;
-   my ( $var ) = @_;
-   return $self->{interpsub}->( $var );
+   if( ref $_[0] eq "HASH" ) {
+      return $self->{interpsub}->( @{$_[0]}{ $self->vars } );
+   }
+   else {
+      return $self->{interpsub}->( @_ );
+   }
 }
 
 =head2 @vars = $smi->vars()
 
-Returns the list of variable names defined / used by the template.
+Returns the list of variable names defined / used by the template, in the
+order in which they appear.
 
 =cut
 

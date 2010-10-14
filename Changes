@@ -1,5 +1,9 @@
 Revision history for String-MatchInterpolate
 
+0.05    CHANGES:
+         * Allow positional interpolation and matches in list context
+         * Allow anonymous variables; best used positionally
+
 0.04    CHANGES:
          * Added 'use warnings'
          * Various small updates to keep CPANTS happy

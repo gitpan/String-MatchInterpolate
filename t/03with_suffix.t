@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Test::More tests => 3;
+use Test::More tests => 4;
 use Test::Exception;
 
 use String::MatchInterpolate;
@@ -17,3 +17,5 @@ is_deeply( $vars, { NAME => 'MyName', _suffix => '' }, 'matched with empty suffi
 
 $vars = $smi->match( "nmMyName with values" );
 is_deeply( $vars, { NAME => 'MyName', _suffix => ' with values' }, 'matched with suffix' );
+
+is_deeply( [ $smi->match( "nmMyName and more" ) ], [ 'MyName', ' and more' ], 'matched with suffix in list context' );
