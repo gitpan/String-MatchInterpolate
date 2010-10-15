@@ -36,6 +36,9 @@ DESCRIPTION
     not contain any capture brackets "( )" as these will confuse the parsing
     logic. If the variable is not named, it will be assigned a name based on
     its position, starting from 1 (i.e. similar to regexp capture buffers).
+    If a variable does not provide a matching pattern but the constructor
+    was given a default with the "default_re" option, this will be used
+    instead.
 
     Outside of the embedded variables, the string is interpreted literally;
     i.e. not as a regexp pattern. A backslash "\" may be used to escape the
@@ -79,11 +82,24 @@ CONSTRUCTOR
     %opts   A hash containing extra options. The following options are
             recognised:
 
-            allow_suffix
+            allow_suffix => BOOL
                 A boolean flag. If true, then the end of the string will not
                 be anchored, and instead, an extra suffix will be allowed to
                 follow the matched portion. It will be returned as "_suffix"
                 by the "match()" method.
+
+            default_re => Regexp or STRING
+                A precompiled Regexp or string defining a regexp to use if a
+                variable does not provide a pattern of its own.
+
+            delimiters => ARRAY of [Regexp or STRING]
+                An array containing two precompliled Regexps or strings,
+                giving the variable openning and closing delimiters. These
+                default to "qr/\$\{/" and "qr/\}/" respectively, but by
+                passing other values, other styles of template string may be
+                parsed.
+
+                 delimiters => [ qr/\{/, qr/\}/ ]   # To match {name/pattern/}
 
 METHODS
   @values = $smi->match( $str )

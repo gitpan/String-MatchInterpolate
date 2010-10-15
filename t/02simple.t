@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Test::More tests => 27;
+use Test::More tests => 28;
 use Test::Exception;
 
 use String::MatchInterpolate;
@@ -87,3 +87,7 @@ is_deeply( [$smi->vars], [], 'vars list' );
 
 $vars = $smi->match( 'example ${NAME/pattern/}' );
 is_deeply( $vars, { }, 'matched correct keys' );
+
+$smi = String::MatchInterpolate->new( 'literal \\\\${NAME/\w+/}' );
+
+is( $smi->interpolate( { NAME => "name" } ), "literal \\name", 'escaped backslash parsed OK' );

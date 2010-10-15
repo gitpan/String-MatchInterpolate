@@ -1,5 +1,9 @@
 Revision history for String-MatchInterpolate
 
+0.06    CHANGES:
+         * Added default_re option for variables that do not provide their own
+         * Allow changing the default variable delimiting patterns
+
 0.05    CHANGES:
          * Allow positional interpolation and matches in list context
          * Allow anonymous variables; best used positionally

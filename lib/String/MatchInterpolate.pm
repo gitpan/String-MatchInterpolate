@@ -5,13 +5,13 @@
 
 package String::MatchInterpolate;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 use strict;
 use warnings;
 
 use Carp;
-use Text::Balanced qw( extract_delimited extract_bracketed );
+use Text::Balanced qw( extract_delimited );
 
 =head1 NAME
 
@@ -51,7 +51,9 @@ a name and a pattern. The pattern is a normal perl regexp fragment that will
 be used by the C<match()> method. This regexp should not contain any capture
 brackets C<( )> as these will confuse the parsing logic. If the variable is
 not named, it will be assigned a name based on its position, starting from 1
-(i.e. similar to regexp capture buffers).
+(i.e. similar to regexp capture buffers). If a variable does not provide a
+matching pattern but the constructor was given a default with the
+C<default_re> option, this will be used instead.
 
 Outside of the embedded variables, the string is interpreted literally; i.e.
 not as a regexp pattern. A backslash C<\> may be used to escape the following
@@ -105,11 +107,25 @@ A hash containing extra options. The following options are recognised:
 
 =over 4
 
-=item allow_suffix
+=item allow_suffix => BOOL
 
 A boolean flag. If true, then the end of the string will not be anchored, and
 instead, an extra suffix will be allowed to follow the matched portion. It
 will be returned as C<_suffix> by the C<match()> method.
+
+=item default_re => Regexp or STRING
+
+A precompiled Regexp or string defining a regexp to use if a variable does not
+provide a pattern of its own.
+
+=item delimiters => ARRAY of [Regexp or STRING]
+
+An array containing two precompliled Regexps or strings, giving the variable
+openning and closing delimiters. These default to C<qr/\$\{/> and C<qr/\}/>
+respectively, but by passing other values, other styles of template string may
+be parsed.
+
+ delimiters => [ qr/\{/, qr/\}/ ]   # To match {name/pattern/}
 
 =back
 
@@ -139,26 +155,34 @@ sub new
    # environment
    my @literals;
 
+   my ( $delim_open, $delim_close ) = $opts{delimiters} ? 
+      @{ $opts{delimiters} } :
+      ( qr/\$\{/, qr/\}/ );
+
    while( length $template ) {
-      if( $template =~ m/^\$\{/ ) {
-         # Chop off leading dollar sign
-         $template =~ s/^\$//;
-
-         ( my $embedded, $template ) = extract_bracketed( $template, '{}' );
-
-         $embedded =~ m#^{(\w*)(.*)}$# or croak "Unrecognised format for embedded variable $embedded";
-
-         my ( $var, $pattern ) = ( $1, $2 );
-         length $var or $var = ( $varnumber + 1 );
+      if( $template =~ s/^$delim_open// ) {
+         $template =~ s/^(\w*)//;
+         my $var = length $1 ? $1 : ( $varnumber + 1 );
 
          croak "Multiple occurances of $var" if exists $vars{$var};
          $vars{$var} = 1;
          push @{ $self->{vars} }, $var;
 
-         ( $pattern, my $remaining ) = extract_delimited( $pattern, "/", '', '' );
+         my $pattern;
+         if( $template =~ m{^/} ) {
+            ( $pattern, $template ) = extract_delimited( $template, "/", '', '' );
 
-         # Remove delimiting slashes
-         s{^/}{}, s{/$}{} for $pattern;
+            # Remove delimiting slashes
+            s{^/}{}, s{/$}{} for $pattern;
+         }
+         elsif( $opts{default_re} ) {
+            $pattern = $opts{default_re};
+         }
+         else {
+            croak "Expected a pattern for $var variable";
+         }
+
+         $template =~ s/^$delim_close// or croak "Expected $delim_close";
 
          $matchpattern .= "($pattern)";
          push @matchbinds, "$var => \$ ". ( $varnumber + 1 );
@@ -167,8 +191,8 @@ sub new
          $varnumber++;
       }
       else {
-         # Grab up to the next $ that isn't escaped \$
-         $template =~ m/^(.*?[^\\])(?:$|\$\{)/;
+         # Grab up to the next delimiter, or end of the string
+         $template =~ m/^((?:\\.|[^\\])*?)(?:$|$delim_open)/;
          my $literal = $1;
 
          substr( $template, 0, length $literal ) = "";
